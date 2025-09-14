@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  base: 'https://Lawrence-oss.github.io/my-app/',
+  base:  '/laws-scan/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
