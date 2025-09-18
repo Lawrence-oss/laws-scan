@@ -18,7 +18,7 @@ export default function NotFound() {
         </div>
         
         <Button 
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/dashboard')}
           className="glow glow-primary"
           size="lg"
         >
