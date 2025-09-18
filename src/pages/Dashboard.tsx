@@ -1,8 +1,8 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Shield, 
   ShieldAlert, 
@@ -41,13 +41,17 @@ const urlSchema = z.object({
 });
 
 const Dashboard = () => {
-  const { currentScan, startScan, isScanning, scanHistory } = useScan();
+  const { currentScan, startScan, isScanning, scanHistory, clearCurrentScan } = useScan();
   const { isAuthenticated } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const [captchaData, setCaptchaData] = useState<{ token: string; answer: string } | null>(null);
   const [isCaptchaValid, setIsCaptchaValid] = useState(false);
-  const [lastScanStatus, setLastScanStatus] = useState<string | null>(null);
+  const [hasNavigatedForScan, setHasNavigatedForScan] = useState<string | null>(null);
+  
+  // Use ref to prevent stale closure issues
+  const navigationTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const form = useForm<z.infer<typeof urlSchema>>({
     resolver: zodResolver(urlSchema),
@@ -56,32 +60,111 @@ const Dashboard = () => {
     },
   });
 
-  // Monitor scan status changes to navigate when complete
+  // Debug logging
   useEffect(() => {
-    if (currentScan) {
-      // Only navigate if scan just completed (status changed from scanning to completed)
-      if (currentScan.status === 'completed' && lastScanStatus === 'scanning') {
-        // Small delay to ensure UI updates, then navigate
-        setTimeout(() => {
-          navigate(`/app/scan-results/${currentScan.id}`);
-        }, 1000);
-      }
-      setLastScanStatus(currentScan.status);
-    }
-  }, [currentScan?.status, navigate, lastScanStatus]);
+    console.log('=== Dashboard Debug Info ===');
+    console.log('Current location:', location.pathname);
+    console.log('Is authenticated:', isAuthenticated);
+    console.log('Current scan:', currentScan);
+    console.log('Is scanning:', isScanning);
+    console.log('Has navigated for scan:', hasNavigatedForScan);
+  }, [location.pathname, isAuthenticated, currentScan, isScanning, hasNavigatedForScan]);
 
-  const onCaptchaComplete = (data: { token: string; answer: string }, isValid: boolean) => {
+  // Clear completed scan state when returning to dashboard to prevent re-navigation
+  useEffect(() => {
+    if (location.pathname === '/dashboard' && currentScan && currentScan.status === 'completed' && hasNavigatedForScan === currentScan.id) {
+      console.log('Clearing completed scan state to prevent re-navigation');
+      clearCurrentScan();
+      setHasNavigatedForScan(null);
+    }
+  }, [location.pathname, currentScan, hasNavigatedForScan, clearCurrentScan]);
+
+  // FIXED: Improved navigation logic with route checking
+  useEffect(() => {
+    console.log('=== Navigation Effect Triggered ===');
+    
+    if (!currentScan || !currentScan.id) {
+      console.log('No current scan, skipping navigation');
+      return;
+    }
+
+    console.log('Current scan status:', currentScan.status);
+    console.log('Current scan ID:', currentScan.id);
+    console.log('Has already navigated for this scan:', hasNavigatedForScan === currentScan.id);
+    console.log('Current location:', location.pathname);
+
+    // IMPORTANT: Only navigate if:
+    // 1. Scan is completed
+    // 2. Haven't already navigated for this scan
+    // 3. We're currently on the dashboard (not already on results page)
+    // 4. We're not in the middle of scanning
+    if (
+      currentScan.status === 'completed' && 
+      hasNavigatedForScan !== currentScan.id &&
+      location.pathname === '/dashboard' && // Add this check
+      !isScanning // Add this check
+    ) {
+      console.log('🎉 Scan completed! Setting up navigation...');
+      
+      // Clear any existing timer
+      if (navigationTimerRef.current) {
+        clearTimeout(navigationTimerRef.current);
+      }
+      
+      // Set navigation timer
+      navigationTimerRef.current = setTimeout(() => {
+        console.log('Executing navigation to:', `/scan-results/${currentScan.id}`);
+        
+        // Mark this scan as navigated to prevent duplicate navigation
+        setHasNavigatedForScan(currentScan.id);
+        
+        // Navigate with replace to prevent back button issues
+        navigate(`/scan-results/${currentScan.id}`, { 
+          replace: true,
+          state: { fromDashboard: true }
+        });
+      }, 2000); // 2 second delay
+      
+      // Cleanup function
+      return () => {
+        if (navigationTimerRef.current) {
+          clearTimeout(navigationTimerRef.current);
+          navigationTimerRef.current = null;
+        }
+      };
+    }
+  }, [currentScan?.status, currentScan?.id, navigate, hasNavigatedForScan, location.pathname, isScanning]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (navigationTimerRef.current) {
+        clearTimeout(navigationTimerRef.current);
+      }
+    };
+  }, []);
+
+  const onCaptchaComplete = useCallback((data: { token: string; answer: string }, isValid: boolean) => {
+    console.log('Captcha completed:', { isValid, hasData: !!data });
     setCaptchaData(data);
     setIsCaptchaValid(isValid);
-  };
+  }, []);
 
   const onSubmit = async (data: z.infer<typeof urlSchema>) => {
+    console.log('=== Form Submission ===');
+    console.log('Form data:', data);
+    console.log('Is authenticated:', isAuthenticated);
+    console.log('Captcha data:', captchaData);
+    console.log('Is captcha valid:', isCaptchaValid);
+    
     // Ensure URL has protocol
     const url = data.url.startsWith('http') ? data.url : `https://${data.url}`;
+    console.log('Final URL:', url);
     
     // Check captcha for non-authenticated users
     if (!isAuthenticated) {
       if (!captchaData || !captchaData.answer) {
+        console.log('❌ Captcha validation failed: missing data');
         form.setError('url', {
           type: 'manual',
           message: 'Please complete the security verification first'
@@ -90,6 +173,7 @@ const Dashboard = () => {
       }
       
       if (!isCaptchaValid) {
+        console.log('❌ Captcha validation failed: incorrect answer');
         form.setError('url', {
           type: 'manual',
           message: 'Please provide the correct answer to the captcha'
@@ -99,20 +183,41 @@ const Dashboard = () => {
     }
     
     try {
+      console.log('🚀 Starting scan...');
+      
+      // Reset navigation tracking for new scan
+      setHasNavigatedForScan(null);
+      
       const scanId = await startScan(url, captchaData || undefined);
+      console.log('✅ Scan started with ID:', scanId);
+      
       if (scanId) {
         // Reset form and captcha
         form.reset();
         setCaptchaData(null);
         setIsCaptchaValid(false);
-        setLastScanStatus('scanning'); // Track that we started scanning
         
-        // Don't navigate immediately - let the useEffect handle navigation when scan completes
+        console.log('Form reset completed');
+      } else {
+        console.log('❌ Scan failed to start (no scan ID returned)');
       }
     } catch (error) {
-      console.error("Scan failed:", error);
+      console.error("❌ Scan failed with error:", error);
     }
   };
+
+  const handleManualNavigation = useCallback(() => {
+    if (currentScan && currentScan.id && currentScan.status === 'completed') {
+      console.log('Manual navigation triggered for:', currentScan.id);
+      setHasNavigatedForScan(currentScan.id);
+      navigate(`/scan-results/${currentScan.id}`, { replace: true });
+    }
+  }, [currentScan?.id, currentScan?.status, navigate]);
+
+  const handleRecentScanClick = useCallback((scanId: string) => {
+    console.log('Clicking recent scan:', scanId);
+    navigate(`/scan-results/${scanId}`);
+  }, [navigate]);
 
   const recentScans = scanHistory.slice(0, 3);
   
@@ -135,7 +240,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Top Navigation Bar */}
+      {/* Navigation Bar */}
       <nav className="absolute top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-sm border-b border-slate-700/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -162,7 +267,7 @@ const Dashboard = () => {
         </div>
       </nav>
 
-      {/* Hero Section */}
+      {/* Main Content */}
       <div className="relative overflow-hidden pt-16">
         <div className="absolute inset-0 bg-grid-slate-700/25 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))]" />
         <div className="relative py-16 px-4 md:px-8">
@@ -282,17 +387,19 @@ const Dashboard = () => {
                             <div>
                               <p className="text-white font-medium">Scan Complete!</p>
                               <p className="text-sm text-slate-400">
-                                Found {currentScan.summary.total} vulnerabilities
+                                Found {currentScan.summary?.total || 0} vulnerabilities
                               </p>
                             </div>
                           </div>
-                          <Button
-                            onClick={() => navigate(`/app/scan-results/${currentScan.id}`)}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            View Results
-                            <ArrowRight className="ml-2 h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={handleManualNavigation}
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              View Results
+                              <ArrowRight className="ml-2 h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -414,7 +521,7 @@ const Dashboard = () => {
                 <Card 
                   key={scan.id} 
                   className="bg-slate-800/30 border-slate-700/50 hover:bg-slate-800/50 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/app/scan-results/${scan.id}`)}
+                  onClick={() => handleRecentScanClick(scan.id)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
@@ -428,12 +535,12 @@ const Dashboard = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {scan.summary.high > 0 && (
+                        {scan.summary?.high > 0 && (
                           <Badge variant="destructive" className="text-xs">
                             {scan.summary.high} Critical
                           </Badge>
                         )}
-                        {scan.summary.total === 0 && (
+                        {scan.summary?.total === 0 && (
                           <Badge className="bg-green-500/10 text-green-400 border-green-500/20 text-xs">
                             Secure
                           </Badge>

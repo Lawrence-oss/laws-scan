@@ -67,7 +67,7 @@ const AuthPage = () => {
       
       if (result.success) {
         toast.success("Login successful!");
-        navigate("/");
+     navigate("/dashboard", { replace: true });
       } else {
         toast.error(result.error || "Login failed. Please try again.");
       }

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import axios, { AxiosError } from 'axios';
 import React from 'react';
-import { useAuth } from './AuthContext'; // Add this import
+import { useAuth } from './AuthContext';
 
 export type VulnerabilityLevel = 'high' | 'medium' | 'low' | 'none';
 
@@ -37,7 +37,6 @@ export interface ScanResult {
   };
 }
 
-// Add this new interface
 export interface CaptchaData {
   token: string;
   question: string;
@@ -46,9 +45,10 @@ export interface CaptchaData {
 interface ScanContextType {
   currentScan: ScanResult | null;
   scanHistory: ScanResult[];
-  startScan: (url: string, captchaData?: { token: string; answer: string }) => Promise<string>; // Updated signature
+  startScan: (url: string, captchaData?: { token: string; answer: string }) => Promise<string>;
   getScanById: (id: string) => ScanResult | undefined;
-  getCaptcha: () => Promise<CaptchaData>; // Add this new method
+  getCaptcha: () => Promise<CaptchaData>;
+  clearCurrentScan: () => void; // New method to clear current scan
   isScanning: boolean;
 }
 
@@ -60,7 +60,7 @@ export const ScanProvider = ({ children }: { children: ReactNode }) => {
   const [currentScan, setCurrentScan] = useState<ScanResult | null>(null);
   const [scanHistory, setScanHistory] = useState<ScanResult[]>([]);
   const [isScanning, setIsScanning] = useState(false);
-  const { isAuthenticated } = useAuth(); // Add this line
+  const { isAuthenticated } = useAuth();
   
   // Use useRef to store intervals to avoid stale closure issues
   const pollingIntervalsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -88,7 +88,20 @@ export const ScanProvider = ({ children }: { children: ReactNode }) => {
     };
   };
 
-  // Add this new function for getting captcha
+  // New function to clear current scan state
+  const clearCurrentScan = useCallback(() => {
+    console.log('Clearing current scan state');
+    setCurrentScan(null);
+    setIsScanning(false);
+    
+    // Clear any active polling intervals
+    pollingIntervalsRef.current.forEach((interval) => {
+      clearInterval(interval);
+    });
+    pollingIntervalsRef.current.clear();
+  }, []);
+
+  // Function for getting captcha
   const getCaptcha = async (): Promise<CaptchaData> => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/captcha/`);
@@ -153,13 +166,16 @@ export const ScanProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []); // Empty dependency array since we use ref
 
-  // Update the startScan function to support captcha
+  // Modified startScan function with better state management
   const startScan = async (url: string, captchaData?: { token: string; answer: string }): Promise<string> => {
     if (isScanning) {
       toast.error("A scan is already in progress");
       return '';
     }
 
+    // Clear any previous scan state before starting new one
+    clearCurrentScan();
+    
     setIsScanning(true);
 
     try {
@@ -208,6 +224,8 @@ export const ScanProvider = ({ children }: { children: ReactNode }) => {
 
       return scanData.id;
     } catch (error) {
+      // Make sure to clear state on error
+      setCurrentScan(null);
       setIsScanning(false);
       
       let errorMessage = 'Scan failed: Unknown error';
@@ -261,7 +279,8 @@ export const ScanProvider = ({ children }: { children: ReactNode }) => {
       scanHistory,
       startScan,
       getScanById,
-      getCaptcha, // Add this to the provider value
+      getCaptcha,
+      clearCurrentScan, // Add this to the provider value
       isScanning
     }}>
       {children}
