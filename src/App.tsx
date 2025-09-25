@@ -5,6 +5,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "./components/ui/theme-provider";
 import Dashboard from "./pages/Dashboard";
 import ScanResults from "./pages/ScanResults";
+import ScanProgress from "./pages/ScanProgress";
 import Authpage from "./pages/Authpage";
 import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
@@ -46,6 +47,11 @@ const AppRoutes = () => (
       {/* Dashboard - accessible to everyone */}
       <Route path="/dashboard" element={<FullScreenLayout />}>
         <Route index element={<Dashboard />} />
+      </Route>
+      
+      {/* Scan Progress - accessible to everyone */}
+      <Route path="/scan-progress/:scanId" element={<FullScreenLayout />}>
+        <Route index element={<ScanProgress />} />
       </Route>
       
       {/* Scan Results - accessible to everyone */}

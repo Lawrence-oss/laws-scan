@@ -23,7 +23,6 @@ import { Button } from '@/components/ui/button';
 import { Form, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/components/ui/theme-provider';
@@ -79,7 +78,7 @@ const Dashboard = () => {
     }
   }, [location.pathname, currentScan, hasNavigatedForScan, clearCurrentScan]);
 
-  // FIXED: Improved navigation logic with route checking
+  // Navigation logic - redirect to progress page when scan starts
   useEffect(() => {
     console.log('=== Navigation Effect Triggered ===');
     
@@ -93,47 +92,24 @@ const Dashboard = () => {
     console.log('Has already navigated for this scan:', hasNavigatedForScan === currentScan.id);
     console.log('Current location:', location.pathname);
 
-    // IMPORTANT: Only navigate if:
-    // 1. Scan is completed
-    // 2. Haven't already navigated for this scan
-    // 3. We're currently on the dashboard (not already on results page)
-    // 4. We're not in the middle of scanning
+    // Navigate to progress page when scan starts
     if (
-      currentScan.status === 'completed' && 
+      currentScan.status === 'scanning' && 
       hasNavigatedForScan !== currentScan.id &&
-      location.pathname === '/dashboard' && // Add this check
-      !isScanning // Add this check
+      location.pathname === '/dashboard'
     ) {
-      console.log('🎉 Scan completed! Setting up navigation...');
+      console.log('🚀 Scan started! Navigating to progress page...');
       
-      // Clear any existing timer
-      if (navigationTimerRef.current) {
-        clearTimeout(navigationTimerRef.current);
-      }
+      // Mark this scan as navigated to prevent duplicate navigation
+      setHasNavigatedForScan(currentScan.id);
       
-      // Set navigation timer
-      navigationTimerRef.current = setTimeout(() => {
-        console.log('Executing navigation to:', `/scan-results/${currentScan.id}`);
-        
-        // Mark this scan as navigated to prevent duplicate navigation
-        setHasNavigatedForScan(currentScan.id);
-        
-        // Navigate with replace to prevent back button issues
-        navigate(`/scan-results/${currentScan.id}`, { 
-          replace: true,
-          state: { fromDashboard: true }
-        });
-      }, 2000); // 2 second delay
-      
-      // Cleanup function
-      return () => {
-        if (navigationTimerRef.current) {
-          clearTimeout(navigationTimerRef.current);
-          navigationTimerRef.current = null;
-        }
-      };
+      // Navigate to progress page
+      navigate(`/scan-progress/${currentScan.id}`, { 
+        replace: true,
+        state: { fromDashboard: true }
+      });
     }
-  }, [currentScan?.status, currentScan?.id, navigate, hasNavigatedForScan, location.pathname, isScanning]);
+  }, [currentScan?.status, currentScan?.id, navigate, hasNavigatedForScan, location.pathname]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -206,13 +182,6 @@ const Dashboard = () => {
     }
   };
 
-  const handleManualNavigation = useCallback(() => {
-    if (currentScan && currentScan.id && currentScan.status === 'completed') {
-      console.log('Manual navigation triggered for:', currentScan.id);
-      setHasNavigatedForScan(currentScan.id);
-      navigate(`/scan-results/${currentScan.id}`, { replace: true });
-    }
-  }, [currentScan?.id, currentScan?.status, navigate]);
 
   const handleRecentScanClick = useCallback((scanId: string) => {
     console.log('Clicking recent scan:', scanId);
@@ -221,19 +190,7 @@ const Dashboard = () => {
 
   const recentScans = scanHistory.slice(0, 3);
   
-  const scanSteps = [
-    "Analyzing website structure",
-    "Scanning for open ports",
-    "Testing for SQL injection vulnerabilities", 
-    "Checking for XSS vulnerabilities",
-    "Analyzing security headers",
-    "Generating comprehensive report"
-  ];
 
-  const getCurrentStep = (progress: number) => {
-    const stepIndex = Math.floor((progress / 100) * scanSteps.length);
-    return scanSteps[Math.min(stepIndex, scanSteps.length - 1)];
-  };
 
   // Determine if the scan button should be disabled
   const isScanDisabled = isScanning || (!isAuthenticated && (!isCaptchaValid || !captchaData?.answer));
@@ -341,68 +298,6 @@ const Dashboard = () => {
                       onCaptchaComplete={onCaptchaComplete}
                       isRequired={!isAuthenticated}
                     />
-                  )}
-
-                  {/* Scanning Progress */}
-                  {isScanning && currentScan && (
-                    <Card className="bg-slate-800/50 border-slate-700 animate-pulse">
-                      <CardContent className="p-6">
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-1 flex-1">
-                              <p className="text-sm font-medium text-white flex items-center gap-2">
-                                <Loader2 className="h-4 w-4 animate-spin text-green-400" />
-                                Scanning {currentScan.url}
-                              </p>
-                              <p className="text-xs text-slate-400">
-                                {getCurrentStep(currentScan.progress)}
-                              </p>
-                            </div>
-                            <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10">
-                              {currentScan.progress}%
-                            </Badge>
-                          </div>
-                          <div className="space-y-2">
-                            <Progress 
-                              value={currentScan.progress} 
-                              className="h-3 bg-slate-700"
-                            />
-                            <div className="flex justify-between text-xs text-slate-400">
-                              <span>Started</span>
-                              <span>{currentScan.progress === 100 ? 'Complete' : 'In Progress'}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Show when scan completes */}
-                  {!isScanning && currentScan && currentScan.status === 'completed' && (
-                    <Card className="bg-green-500/10 border-green-500/20">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <CheckCircle className="h-6 w-6 text-green-400" />
-                            <div>
-                              <p className="text-white font-medium">Scan Complete!</p>
-                              <p className="text-sm text-slate-400">
-                                Found {currentScan.summary?.total || 0} vulnerabilities
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              onClick={handleManualNavigation}
-                              className="bg-green-600 hover:bg-green-700"
-                            >
-                              View Results
-                              <ArrowRight className="ml-2 h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
                   )}
                 </div>
 
