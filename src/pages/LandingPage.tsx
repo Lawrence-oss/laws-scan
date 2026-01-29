@@ -223,7 +223,7 @@ const LandingPage = () => {
                   <>
                     <Button 
                       size="lg"
-                      onClick={() => navigate('/dashboard')} // CHANGED: Now goes to dashboard
+                      onClick={() => navigate('/dashboard')} 
                       className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white"
                     >
                       Start Free Scan
@@ -232,7 +232,7 @@ const LandingPage = () => {
                     <Button 
                       size="lg"
                       variant="outline"
-                      onClick={() => navigate('/auth')} // This stays the same - goes to auth
+                      onClick={() => navigate('/auth')} 
                       className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
                     >
                       <User className="mr-2 h-5 w-5" />
@@ -391,7 +391,7 @@ const LandingPage = () => {
               <>
                 <Button 
                   size="lg"
-                  onClick={() => navigate('/dashboard')} // CHANGED: Now goes to dashboard
+                  onClick={() => navigate('/dashboard')} 
                   className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white"
                 >
                   Start Your Free Scan
@@ -399,7 +399,7 @@ const LandingPage = () => {
                 <Button 
                   size="lg"
                   variant="outline"
-                  onClick={() => navigate('/auth')} // This stays the same - goes to auth
+                  onClick={() => navigate('/auth')} 
                   className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
                 >
                   Sign In

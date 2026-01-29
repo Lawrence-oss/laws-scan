@@ -234,4 +234,4 @@ const ScanProgress = () => {
   );
 };
 
-export default ScanProgress;
+export default ScanProgress; 

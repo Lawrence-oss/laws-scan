@@ -211,7 +211,7 @@ export const ScanProvider = ({ children }: { children: ReactNode }) => {
       
       pollingIntervalsRef.current.set(scanData.id, intervalId);
       
-      // Set a maximum polling time of 15 minutes (increased from 10)
+      // Set a maximum polling time of 15 minutes 
       setTimeout(() => {
         const interval = pollingIntervalsRef.current.get(scanData.id);
         if (interval) {
@@ -262,7 +262,6 @@ export const ScanProvider = ({ children }: { children: ReactNode }) => {
     return scanHistory.find(scan => scan.id === id);
   };
 
-  // Cleanup on unmount - simplified
   React.useEffect(() => {
     return () => {
       // Clear all intervals on component unmount
@@ -271,7 +270,7 @@ export const ScanProvider = ({ children }: { children: ReactNode }) => {
       });
       pollingIntervalsRef.current.clear();
     };
-  }, []); // Empty dependency array
+  }, []); 
 
   return (
     <ScanContext.Provider value={{
@@ -280,7 +279,7 @@ export const ScanProvider = ({ children }: { children: ReactNode }) => {
       startScan,
       getScanById,
       getCaptcha,
-      clearCurrentScan, // Add this to the provider value
+      clearCurrentScan, 
       isScanning
     }}>
       {children}

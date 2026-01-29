@@ -181,9 +181,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
     setIsAuthenticated(false);
     
-    // Optional: Call logout endpoint to invalidate token on server
+  
     axios.post(`${API_BASE_URL}/api/auth/logout/`).catch(() => {
-      // Ignore errors on logout endpoint
     });
 
     // Redirect to landing page after logout
