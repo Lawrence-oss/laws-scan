@@ -333,5 +333,5 @@ const AuthPage = () => {
   );
 };
 
-// Default export - this fixes the main import error
+
 export default AuthPage;
