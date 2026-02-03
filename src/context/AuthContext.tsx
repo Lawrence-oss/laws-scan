@@ -33,9 +33,7 @@ interface AuthProviderProps {
 
 // const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-const API_BASE_URL = import.meta.env.PROD
-  ? "https://scanner-backend-1-zikr.onrender.com"
-  : import.meta.env.VITE_API_URL;
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://scanner-backend-1-zikr.onrender.com";
 
 // Configure axios interceptors for automatic token attachment
 axios.interceptors.request.use(
