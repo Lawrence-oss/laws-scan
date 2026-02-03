@@ -65,11 +65,9 @@ const ScanContext = createContext<ScanContextType | undefined>(undefined);
 
 // const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  (import.meta.env.PROD
-    ? "https://scanner-backend-1-zikr.onrender.com"
-    : "http://localhost:8000");
+const API_BASE_URL = import.meta.env.PROD
+  ? "https://scanner-backend-1-zikr.onrender.com"
+  : import.meta.env.VITE_API_URL;
 
 export const ScanProvider = ({ children }: { children: ReactNode }) => {
   const [currentScan, setCurrentScan] = useState<ScanResult | null>(null);
